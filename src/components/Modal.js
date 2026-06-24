@@ -6,8 +6,8 @@ export default function Modal({ isOpen, onClose, title, children }) {
   return (
     <div style={{
       position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.7)',
-      backdropFilter: 'blur(4px)',
+      backgroundColor: 'rgba(0, 0, 0, 0.75)',
+      backdropFilter: 'blur(6px)',
       display: 'flex', justifyContent: 'center', alignItems: 'center',
       zIndex: 1000,
       padding: '24px'
@@ -15,8 +15,11 @@ export default function Modal({ isOpen, onClose, title, children }) {
       <div className="glass-card" style={{
         width: '100%', maxWidth: '600px',
         maxHeight: '90vh', overflowY: 'auto',
-        background: '#18181b', // Zinc-900 solid for forms
-        position: 'relative'
+        background: '#111827',
+        position: 'relative',
+        borderTop: '2px solid #3b82f6',
+        boxShadow: '0 0 40px rgba(59, 130, 246, 0.1), 0 24px 48px rgba(0,0,0,0.5)',
+        animation: 'modalIn 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both'
       }}>
         <div className="flex-between mb-6">
           <h2 style={{ marginBottom: 0 }}>{title}</h2>

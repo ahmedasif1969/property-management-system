@@ -94,6 +94,11 @@ export default function Properties() {
             <div className="property-image">
               <img src={`https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&q=80&w=400&h=250`} alt="Property" />
               <div className="property-tag">{property.status}</div>
+              <div className="property-image-hover-overlay">
+                <span style={{ color: '#fff', fontWeight: 600, fontSize: '0.9rem', letterSpacing: '0.05em' }}>
+                  View Details →
+                </span>
+              </div>
             </div>
             
             <h3 className="property-title">{property.title}</h3>
