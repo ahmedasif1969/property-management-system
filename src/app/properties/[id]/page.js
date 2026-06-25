@@ -43,10 +43,11 @@ export default function PropertyDetail() {
       setContracts(found.contracts || []);
       setServiceCharges(found.serviceCharges || []);
       setMaintenanceCharges(found.maintenanceCharges || []);
-      if (found.contracts && found.contracts.length > 0 && !expandedContractId) {
-        setExpandedContractId(found.contracts[0].id);
+      if (found.contracts && found.contracts.length > 0) {
+        setExpandedContractId(prev => prev ?? found.contracts[0].id);
       }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [params.id]);
 
   const updateContracts = (newContracts) => {
@@ -975,7 +976,7 @@ export default function PropertyDetail() {
             {/* Parts list */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
               {breakParts.length === 0 && (
-                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No parts yet. Click "+ Add Part" below to split this cheque.</p>
+                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No parts yet. Click &quot;+ Add Part&quot; below to split this cheque.</p>
               )}
               {breakParts.map((part, idx) => (
                 <div key={part.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--surface-border)', borderRadius: '10px', padding: '14px' }}>
