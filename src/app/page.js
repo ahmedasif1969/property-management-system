@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Modal from '@/components/Modal';
 import { getProperties, saveProperties } from '@/utils/db';
@@ -33,11 +33,21 @@ export default function PropertiesSummary() {
     }
   };
   
+  // Expanded split cheque rows
+  const [expandedChequeIds, setExpandedChequeIds] = useState(new Set());
+  const toggleChequeExpand = (chequeId) => {
+    setExpandedChequeIds(prev => {
+      const next = new Set(prev);
+      next.has(chequeId) ? next.delete(chequeId) : next.add(chequeId);
+      return next;
+    });
+  };
+
   // Modal states for editing cheques
   const [isChequeModalOpen, setIsChequeModalOpen] = useState(false);
   const [editingCheque, setEditingCheque] = useState(null);
   const [editingChequeRef, setEditingChequeRef] = useState(null); // { propertyId, contractId }
-  const [chequeFormData, setChequeFormData] = useState({ date: '', amount: '', number: '', depositDate: '', type: '', reference: '', status: 'Non-clear' });
+  const [chequeFormData, setChequeFormData] = useState({ date: '', amount: '', number: '', depositDate: '', type: '', reference: '', status: 'Non-clear', note: '' });
 
   useEffect(() => {
     setMounted(true);
@@ -139,7 +149,7 @@ export default function PropertiesSummary() {
             if (c.id === contractId) {
               return {
                 ...c,
-                cheques: c.cheques.map(ch => ch.id === chequeId ? { ...ch, status: nextStatus, depositDate: nextStatus === 'Cleared' ? `${MONTH_NAMES[selectedMonth].substring(0,3)} 22, ${selectedYear}` : '-' } : ch)
+                cheques: c.cheques.map(ch => ch.id === chequeId ? { ...ch, status: nextStatus } : ch)
               };
             }
             return c;
@@ -149,29 +159,6 @@ export default function PropertiesSummary() {
       return p;
     });
     updatePropertiesState(updatedProps);
-  };
-
-  const handleDeleteCheque = (propertyId, contractId, chequeId) => {
-    if (confirm("Are you sure you want to delete this cheque?")) {
-      const updatedProps = properties.map(p => {
-        if (p.id === propertyId) {
-          return {
-            ...p,
-            contracts: p.contracts.map(c => {
-              if (c.id === contractId) {
-                return {
-                  ...c,
-                  cheques: c.cheques.filter(ch => ch.id !== chequeId)
-                };
-              }
-              return c;
-            })
-          };
-        }
-        return p;
-      });
-      updatePropertiesState(updatedProps);
-    }
   };
 
   const openEditModal = (propertyId, contractId, cheque) => {
@@ -342,68 +329,121 @@ export default function PropertiesSummary() {
             <p>There are no cheques scheduled for payment in {MONTH_NAMES[selectedMonth]} {selectedYear} across active contracts.</p>
           </div>
         ) : (
-          <table className="query-table">
+          <table className="query-table" style={{ fontSize: '0.85rem' }}>
             <thead>
               <tr>
                 <th>Property</th>
                 <th>Tenant</th>
-                <th>Expected Date</th>
-                <th>Cheque No.</th>
-                <th>Type</th>
+                <th>Date</th>
                 <th>Amount</th>
+                <th>Cheque #</th>
+                <th>Deposit Date</th>
+                <th>Type</th>
+                <th>Reference</th>
                 <th>Status</th>
+                <th>Note</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody>
-              {monthlyCheques.map(({ propertyId, propertyTitle, contractId, tenantName, cheque }) => (
-                <tr key={cheque.id}>
-                  <td>
-                    <Link href={`/properties/${propertyId}`} style={{ color: 'var(--primary-color)', fontWeight: 500, textDecoration: 'none' }}>
-                      {propertyTitle}
-                    </Link>
-                  </td>
-                  <td>{tenantName}</td>
-                  <td>{cheque.date}</td>
-                  <td style={{ fontFamily: 'monospace', color: 'var(--text-muted)' }}>{cheque.number || '-'}</td>
-                  <td>{cheque.type || 'PDC'}</td>
-                  <td style={{ fontWeight: 600, color: 'var(--text-main)' }}>{cheque.amount}</td>
-                  <td>
-                    <span 
-                      onClick={() => handleToggleChequeStatus(propertyId, contractId, cheque.id, cheque.status)}
-                      className={`status-badge ${cheque.status === 'Cleared' ? 'status-resolved' : 'status-urgent'}`}
-                      style={{ cursor: 'pointer', userSelect: 'none' }}
-                      title="Click to toggle status"
-                    >
-                      {cheque.status}
-                    </span>
-                  </td>
-                  <td>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button 
-                        className="btn-icon-small edit" 
-                        onClick={() => openEditModal(propertyId, contractId, cheque)}
-                        title="Edit Cheque"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                        </svg>
-                      </button>
-                      <button 
-                        className="btn-icon-small delete" 
-                        onClick={() => handleDeleteCheque(propertyId, contractId, cheque.id)}
-                        title="Delete Cheque"
-                      >
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <polyline points="3 6 5 6 21 6"></polyline>
-                          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                        </svg>
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              {monthlyCheques.map(({ propertyId, propertyTitle, contractId, tenantName, cheque }) => {
+                const hasParts = cheque.parts && cheque.parts.length > 0;
+                const isChqExpanded = expandedChequeIds.has(cheque.id);
+                return (
+                  <>
+                    {/* Main cheque row */}
+                    <tr key={cheque.id}>
+                      <td>
+                        <Link href={`/properties/${propertyId}`} style={{ color: 'var(--primary-color)', fontWeight: 500, textDecoration: 'none' }}>
+                          {propertyTitle}
+                        </Link>
+                      </td>
+                      <td>{tenantName}</td>
+                      <td>{cheque.date}</td>
+                      <td style={{ fontWeight: 600 }}>{cheque.amount}</td>
+                      <td style={{ color: 'var(--secondary-color)' }}>{cheque.number || '-'}</td>
+                      <td>
+                        {hasParts ? (
+                          <button
+                            onClick={() => toggleChequeExpand(cheque.id)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', color: '#3b82f6', fontWeight: 600, fontSize: '0.8rem', padding: 0 }}
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isChqExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', flexShrink: 0 }}>
+                              <polyline points="9 18 15 12 9 6"></polyline>
+                            </svg>
+                            {cheque.parts.length} parts
+                          </button>
+                        ) : (cheque.depositDate || '-')}
+                      </td>
+                      <td>{hasParts ? '-' : (cheque.type || '-')}</td>
+                      <td style={{ color: 'var(--secondary-color)' }}>{hasParts ? '-' : (cheque.reference || '-')}</td>
+                      <td>
+                        <span
+                          onClick={() => handleToggleChequeStatus(propertyId, contractId, cheque.id, cheque.status)}
+                          style={{
+                            color: cheque.status === 'Cleared' || cheque.status === 'Clear' ? '#4cd137' :
+                                   cheque.status === 'Non-clear' || cheque.status === 'Bounced' ? '#ef4444' : '#ffab00',
+                            fontWeight: 600,
+                            cursor: 'pointer',
+                            userSelect: 'none'
+                          }}
+                          title="Click to toggle status"
+                        >
+                          {cheque.status}
+                        </span>
+                      </td>
+                      <td title={cheque.note || ''} style={{ color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: cheque.note ? 'help' : 'default' }}>
+                        {cheque.note || '-'}
+                      </td>
+                      <td>
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          <button
+                            className="btn-icon-small edit"
+                            onClick={() => openEditModal(propertyId, contractId, cheque)}
+                            title="Edit Cheque"
+                          >
+                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+
+                    {/* Expandable parts sub-row */}
+                    {hasParts && isChqExpanded && (
+                      <tr key={`${cheque.id}-parts`}>
+                        <td colSpan={11} style={{ padding: '0 12px 12px 12px', background: 'rgba(59,130,246,0.03)', borderLeft: '3px solid rgba(59,130,246,0.35)' }}>
+                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '8px', paddingTop: '8px' }}>
+                            {cheque.parts.map((part, idx) => (
+                              <div key={part.id} style={{
+                                background: 'rgba(15,20,35,0.7)',
+                                border: '1px solid rgba(59,130,246,0.18)',
+                                borderLeft: '3px solid #3b82f6',
+                                borderRadius: '8px',
+                                padding: '10px 12px'
+                              }}>
+                                <div style={{ fontSize: '0.68rem', color: '#3b82f6', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '8px' }}>PART {idx + 1}</div>
+                                <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 10px', fontSize: '0.8rem' }}>
+                                  <span style={{ color: 'var(--text-muted)' }}>Date</span>
+                                  <span>{part.depositDate || '-'}</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>Amount</span>
+                                  <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{part.amountReceived || '-'}</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>Type</span>
+                                  <span>{part.type || '-'}</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>Ref</span>
+                                  <span style={{ color: 'var(--secondary-color)' }}>{part.reference || '-'}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                );
+              })}
             </tbody>
           </table>
         )}
@@ -443,6 +483,15 @@ export default function PropertiesSummary() {
                 <option value="Non-clear">Non-clear</option>
                 <option value="Cleared">Cleared</option>
               </select>
+            </div>
+            <div className="input-group" style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Note (Optional)</label>
+              <textarea
+                className="input-glass"
+                style={{ width: '100%', height: '70px', padding: '12px', resize: 'none' }}
+                value={chequeFormData.note || ''}
+                onChange={e => setChequeFormData({...chequeFormData, note: e.target.value})}
+              />
             </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>

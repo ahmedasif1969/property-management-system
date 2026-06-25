@@ -10,6 +10,15 @@ export default function PropertyDetail() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState('contracts');
   const [expandedContractId, setExpandedContractId] = useState(null);
+  const [expandedChequeIds, setExpandedChequeIds] = useState(new Set());
+
+  const toggleChequeExpand = (chequeId) => {
+    setExpandedChequeIds(prev => {
+      const next = new Set(prev);
+      next.has(chequeId) ? next.delete(chequeId) : next.add(chequeId);
+      return next;
+    });
+  };
 
   // Modals state
   const [isContractModalOpen, setIsContractModalOpen] = useState(false);
@@ -68,7 +77,13 @@ export default function PropertyDetail() {
   const [isChequeModalOpen, setIsChequeModalOpen] = useState(false);
   const [editingCheque, setEditingCheque] = useState(null);
   const [activeContractIdForCheque, setActiveContractIdForCheque] = useState(null);
-  const [chequeFormData, setChequeFormData] = useState({ date: '', amount: '', number: '', depositDate: '', type: '', reference: '', status: 'Non-clear' });
+  const [chequeFormData, setChequeFormData] = useState({ date: '', amount: '', number: '', depositDate: '', type: '', reference: '', status: 'Non-clear', note: '' });
+
+  // Break Cheque Modal State
+  const [isBreakModalOpen, setIsBreakModalOpen] = useState(false);
+  const [breakingCheque, setBreakingCheque] = useState(null);
+  const [breakContractId, setBreakContractId] = useState(null);
+  const [breakParts, setBreakParts] = useState([]);
 
   const [isFeeModalOpen, setIsFeeModalOpen] = useState(false);
   const [editingFee, setEditingFee] = useState(null);
@@ -115,8 +130,43 @@ export default function PropertyDetail() {
   const openAddChequeModal = (contractId) => {
     setActiveContractIdForCheque(contractId);
     setEditingCheque(null);
-    setChequeFormData({ date: '', amount: '', number: '', depositDate: '', type: '', reference: '', status: 'Non-clear' });
+    setChequeFormData({ date: '', amount: '', number: '', depositDate: '', type: '', reference: '', status: 'Non-clear', note: '' });
     setIsChequeModalOpen(true);
+  };
+
+  // Break Cheque handlers
+  const openBreakModal = (contractId, cheque) => {
+    setBreakContractId(contractId);
+    setBreakingCheque(cheque);
+    setBreakParts(cheque.parts ? [...cheque.parts] : []);
+    setIsBreakModalOpen(true);
+  };
+
+  const addBreakPart = () => {
+    setBreakParts(prev => [...prev, { id: Date.now(), depositDate: '', amountReceived: '', type: '', reference: '' }]);
+  };
+
+  const updateBreakPart = (partId, field, value) => {
+    setBreakParts(prev => prev.map(p => p.id === partId ? { ...p, [field]: value } : p));
+  };
+
+  const removeBreakPart = (partId) => {
+    setBreakParts(prev => prev.filter(p => p.id !== partId));
+  };
+
+  const saveBreakParts = () => {
+    updateContracts(contracts.map(c => {
+      if (c.id === breakContractId) {
+        return {
+          ...c,
+          cheques: c.cheques.map(ch =>
+            ch.id === breakingCheque.id ? { ...ch, parts: breakParts } : ch
+          )
+        };
+      }
+      return c;
+    }));
+    setIsBreakModalOpen(false);
   };
 
   const openEditChequeModal = (contractId, cheque) => {
@@ -335,51 +385,116 @@ export default function PropertyDetail() {
                                   <th>Cheque #</th>
                                   <th>Deposit Date</th>
                                   <th>Type</th>
-                                  <th>Ref Number</th>
+                                  <th>Reference</th>
                                   <th>Status</th>
+                                  <th>Note</th>
                                   <th>Actions</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {contract.cheques && contract.cheques.length > 0 ? (
-                                  contract.cheques.map((cheque) => (
-                                    <tr key={cheque.id}>
-                                      <td>{cheque.date}</td>
-                                      <td style={{ fontWeight: 600 }}>{cheque.amount}</td>
-                                      <td style={{ color: 'var(--secondary-color)' }}>{cheque.number || '-'}</td>
-                                      <td>{cheque.depositDate || '-'}</td>
-                                      <td>{cheque.type || '-'}</td>
-                                      <td style={{ color: 'var(--secondary-color)' }}>{cheque.reference || '-'}</td>
-                                      <td>
-                                        <span style={{ 
-                                          color: cheque.status === 'Cleared' || cheque.status === 'Clear' ? '#4cd137' : 
-                                                 cheque.status === 'Non-clear' || cheque.status === 'Bounced' ? '#ef4444' : '#ffab00',
-                                          fontWeight: 600 
-                                        }}>
-                                          {cheque.status}
-                                        </span>
-                                      </td>
-                                      <td>
-                                        <div style={{ display: 'flex', gap: '8px' }}>
-                                          <button className="btn-icon-small edit" title="Edit Cheque" onClick={() => openEditChequeModal(contract.id, cheque)}>
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                              <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                              <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                            </svg>
-                                          </button>
-                                          <button className="btn-icon-small delete" title="Delete Cheque" onClick={() => handleDeleteCheque(contract.id, cheque.id)}>
-                                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                              <polyline points="3 6 5 6 21 6"></polyline>
-                                              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
-                                            </svg>
-                                          </button>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                  ))
+                                  contract.cheques.map((cheque) => {
+                                    const hasParts = cheque.parts && cheque.parts.length > 0;
+                                    const isChqExpanded = expandedChequeIds.has(cheque.id);
+                                    return (
+                                      <>
+                                        {/* Main cheque row */}
+                                        <tr key={cheque.id}>
+                                          <td>{cheque.date}</td>
+                                          <td style={{ fontWeight: 600 }}>{cheque.amount}</td>
+                                          <td style={{ color: 'var(--secondary-color)' }}>{cheque.number || '-'}</td>
+                                          <td>
+                                            {hasParts ? (
+                                              <button
+                                                onClick={() => toggleChequeExpand(cheque.id)}
+                                                style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '5px', color: '#3b82f6', fontWeight: 600, fontSize: '0.8rem', padding: 0 }}
+                                              >
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ transform: isChqExpanded ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.2s ease', flexShrink: 0 }}>
+                                                  <polyline points="9 18 15 12 9 6"></polyline>
+                                                </svg>
+                                                {cheque.parts.length} parts
+                                              </button>
+                                            ) : (cheque.depositDate || '-')}
+                                          </td>
+                                          <td>{hasParts ? '-' : (cheque.type || '-')}</td>
+                                          <td style={{ color: 'var(--secondary-color)' }}>{hasParts ? '-' : (cheque.reference || '-')}</td>
+                                          <td>
+                                            <span style={{ 
+                                              color: cheque.status === 'Cleared' || cheque.status === 'Clear' ? '#4cd137' : 
+                                                     cheque.status === 'Non-clear' || cheque.status === 'Bounced' ? '#ef4444' : '#ffab00',
+                                              fontWeight: 600 
+                                            }}>
+                                              {cheque.status}
+                                            </span>
+                                          </td>
+                                          <td title={cheque.note || ''} style={{ color: 'var(--text-muted)', fontSize: '0.82rem', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', cursor: cheque.note ? 'help' : 'default' }}>
+                                            {cheque.note || '-'}
+                                          </td>
+                                          <td>
+                                            <div style={{ display: 'flex', gap: '6px' }}>
+                                              <button
+                                                className="btn-icon-small"
+                                                title="Break / Split Cheque"
+                                                onClick={() => openBreakModal(contract.id, cheque)}
+                                                style={{ color: '#3b82f6', borderColor: 'rgba(59,130,246,0.3)' }}
+                                              >
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                  <line x1="12" y1="5" x2="12" y2="19"></line>
+                                                  <line x1="5" y1="12" x2="19" y2="12"></line>
+                                                </svg>
+                                              </button>
+                                              <button className="btn-icon-small edit" title="Edit Cheque" onClick={() => openEditChequeModal(contract.id, cheque)}>
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+                                                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+                                                </svg>
+                                              </button>
+                                              <button className="btn-icon-small delete" title="Delete Cheque" onClick={() => handleDeleteCheque(contract.id, cheque.id)}>
+                                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                                  <polyline points="3 6 5 6 21 6"></polyline>
+                                                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                                                </svg>
+                                              </button>
+                                            </div>
+                                          </td>
+                                        </tr>
+
+                                        {/* Expandable parts sub-row */}
+                                        {hasParts && isChqExpanded && (
+                                          <tr key={`${cheque.id}-parts`}>
+                                            <td colSpan={9} style={{ padding: '0 12px 12px 12px', background: 'rgba(59,130,246,0.03)', borderLeft: '3px solid rgba(59,130,246,0.35)' }}>
+                                              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(190px, 1fr))', gap: '8px', paddingTop: '8px' }}>
+                                                {cheque.parts.map((part, idx) => (
+                                                  <div key={part.id} style={{
+                                                    background: 'rgba(15,20,35,0.7)',
+                                                    border: '1px solid rgba(59,130,246,0.18)',
+                                                    borderLeft: '3px solid #3b82f6',
+                                                    borderRadius: '8px',
+                                                    padding: '10px 12px'
+                                                  }}>
+                                                    <div style={{ fontSize: '0.68rem', color: '#3b82f6', fontWeight: 700, letterSpacing: '0.06em', marginBottom: '8px' }}>PART {idx + 1}</div>
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'auto 1fr', gap: '3px 10px', fontSize: '0.8rem' }}>
+                                                      <span style={{ color: 'var(--text-muted)' }}>Date</span>
+                                                      <span>{part.depositDate || '-'}</span>
+                                                      <span style={{ color: 'var(--text-muted)' }}>Amount</span>
+                                                      <span style={{ fontWeight: 600, color: 'var(--text-main)' }}>{part.amountReceived || '-'}</span>
+                                                      <span style={{ color: 'var(--text-muted)' }}>Type</span>
+                                                      <span>{part.type || '-'}</span>
+                                                      <span style={{ color: 'var(--text-muted)' }}>Ref</span>
+                                                      <span style={{ color: 'var(--secondary-color)' }}>{part.reference || '-'}</span>
+                                                    </div>
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            </td>
+                                          </tr>
+                                        )}
+                                      </>
+                                    );
+                                  })
                                 ) : (
                                   <tr>
-                                    <td colSpan="8" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No cheques registered</td>
+                                    <td colSpan="9" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No cheques registered</td>
                                   </tr>
                                 )}
                               </tbody>
@@ -792,6 +907,15 @@ export default function PropertyDetail() {
                 <option value="Cleared">Cleared</option>
               </select>
             </div>
+            <div className="input-group" style={{ gridColumn: 'span 2' }}>
+              <label style={{ display: 'block', marginBottom: '8px', fontSize: '0.9rem', color: 'var(--text-muted)' }}>Note (Optional)</label>
+              <textarea
+                className="input-glass"
+                style={{ width: '100%', height: '70px', padding: '12px', resize: 'none' }}
+                value={chequeFormData.note || ''}
+                onChange={e => setChequeFormData({...chequeFormData, note: e.target.value})}
+              />
+            </div>
           </div>
           <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
             <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--surface-border)' }} onClick={() => setIsChequeModalOpen(false)}>Cancel</button>
@@ -826,6 +950,82 @@ export default function PropertyDetail() {
             <button type="submit" className="btn">Save Fee</button>
           </div>
         </form>
+      </Modal>
+
+      {/* Break / Split Cheque Modal */}
+      <Modal isOpen={isBreakModalOpen} onClose={() => setIsBreakModalOpen(false)} title="Break Cheque into Parts">
+        {breakingCheque && (
+          <div>
+            {/* Cheque summary header */}
+            <div style={{ background: 'rgba(59,130,246,0.07)', border: '1px solid rgba(59,130,246,0.2)', borderRadius: '10px', padding: '14px 18px', marginBottom: '20px', display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '12px' }}>
+              <div>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Cheque #</span>
+                <p style={{ fontWeight: 600, fontSize: '0.9rem' }}>{breakingCheque.number || '-'}</p>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Total Amount</span>
+                <p style={{ fontWeight: 700, color: '#3b82f6' }}>{breakingCheque.amount}</p>
+              </div>
+              <div>
+                <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Expected Date</span>
+                <p style={{ fontWeight: 500 }}>{breakingCheque.date}</p>
+              </div>
+            </div>
+
+            {/* Parts list */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '16px' }}>
+              {breakParts.length === 0 && (
+                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '20px 0' }}>No parts yet. Click "+ Add Part" below to split this cheque.</p>
+              )}
+              {breakParts.map((part, idx) => (
+                <div key={part.id} style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid var(--surface-border)', borderRadius: '10px', padding: '14px' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <span style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--primary-color)' }}>Part {idx + 1}</span>
+                    <button
+                      type="button"
+                      className="btn-icon-small delete"
+                      onClick={() => removeBreakPart(part.id)}
+                      title="Remove Part"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="3 6 5 6 21 6"></polyline>
+                        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                      </svg>
+                    </button>
+                  </div>
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Deposit Date</label>
+                      <input type="text" className="input-glass" style={{ padding: '9px 12px', fontSize: '0.85rem' }} value={part.depositDate} onChange={e => updateBreakPart(part.id, 'depositDate', e.target.value)} />
+                    </div>
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Amount Received</label>
+                      <input type="text" className="input-glass" style={{ padding: '9px 12px', fontSize: '0.85rem' }} value={part.amountReceived} onChange={e => updateBreakPart(part.id, 'amountReceived', e.target.value)} />
+                    </div>
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Type</label>
+                      <input type="text" className="input-glass" style={{ padding: '9px 12px', fontSize: '0.85rem' }} value={part.type} onChange={e => updateBreakPart(part.id, 'type', e.target.value)} />
+                    </div>
+                    <div className="input-group" style={{ marginBottom: 0 }}>
+                      <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>Reference</label>
+                      <input type="text" className="input-glass" style={{ padding: '9px 12px', fontSize: '0.85rem' }} value={part.reference} onChange={e => updateBreakPart(part.id, 'reference', e.target.value)} />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '8px' }}>
+              <button type="button" className="btn" style={{ background: 'transparent', border: '1px dashed rgba(59,130,246,0.5)', color: '#3b82f6', padding: '8px 16px', fontSize: '0.85rem' }} onClick={addBreakPart}>
+                + Add Part
+              </button>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--surface-border)', padding: '8px 16px', fontSize: '0.85rem' }} onClick={() => setIsBreakModalOpen(false)}>Cancel</button>
+                <button type="button" className="btn" style={{ padding: '8px 16px', fontSize: '0.85rem' }} onClick={saveBreakParts}>Save Parts</button>
+              </div>
+            </div>
+          </div>
+        )}
       </Modal>
     </>
   );
