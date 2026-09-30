@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Property {
+  id          Int      @id @default(autoincrement())
+  title       String
+  location    String
+  status      String   @default("Vacant") // Occupied, Vacant, etc.
+  beds        Int?
+  baths       Int?
+  price       String?
+  sqft        Int?
+  yearBuilt   Int?
+  description String?
+
+  contracts          Contract[]
+  serviceCharges     ServiceCharge[]
+  maintenanceCharges MaintenanceCharge[]
+  queries            Query[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Contract {
+  id              String   @id // e.g. CON-102
+  propertyId      Int
+  status          String   @default("Active") // Active, Expired, Terminated
+  tenantName      String
+  tenantType      String?  // New, Old
+  startDate       String?
+  endDate         String?
+  totalRent       String?
+  securityDeposit String?
+  chequeCount     Int?     @default(0)
+  documents       String?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  cheques  Cheque[]
+  fees     ContractFee[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Cheque {
+  id          Int     @id @default(autoincrement())
+  contractId  String
+  date        String?
+  amount      String?
+  number      String?
+  depositDate String?
+  type        String? // Current, PDC
+  reference   String?
+  status      String? @default("Non-clear") // Cleared, Non-clear
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ContractFee {
+  id         Int     @id @default(autoincrement())
+  contractId String
+  name       String
+  date       String?
+  amount     String?
+  reference  String?
+
+  contract Contract @relation(fields: [contractId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model ServiceCharge {
+  id         Int     @id @default(autoincrement())
+  propertyId Int
+  paidOn     String?
+  reference  String?
+  periodFrom String?
+  periodTo   String?
+  amount     String?
+  details    String?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model MaintenanceCharge {
+  id         Int     @id @default(autoincrement())
+  propertyId Int
+  date       String?
+  amount     String?
+  reference  String?
+  details    String?
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Query {
+  id            Int     @id @default(autoincrement())
+  serialNo      String? // e.g. Q-1042
+  entryDate     String?
+  propertyId    Int?
+  propertyName  String?
+  statementNo   String?
+  description   String?
+  solveLocation String?
+  action        String?
+  status        String? @default("Pending") // Pending, Solved
+
+  property Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
